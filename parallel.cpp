@@ -26,14 +26,16 @@ inline void errorCheck(cl_int code, const char* file, int line) {
 
 void solvePar(int rows, int cols, int iterations, double td, double h, double ** matrix, const char * kernelFileName) {
 
-	double** newMatrix = allocateMatrix(rows, cols);
+	double* newMatrix = new double[rows * cols];
 
 	char* kernelSource = readFile(kernelFileName);
 
 	for (int k = 0; k < iterations; ++k) {
-		heatMapTimeJump(rows - 2, cols - 2, matrix, td, h, newMatrix, kernelSource);
+		heatMapTimeJump(rows, cols, (double*)matrix, td, h, newMatrix, kernelSource);
 		memcpy(matrix, newMatrix, sizeof(double) * rows * cols);
 	}
+
+	free(newMatrix);
 	
 	//cout << "Do OpenCl related stuff here!" << endl << flush;
 
@@ -68,8 +70,8 @@ char * readFile(const char * fileName) {
 	return buffer;
 }
 
-void heatMapTimeJump(int rows, int cols, double ** oldMatrix, double td, double h, double ** newMatrix, const char * kernelSource) {
-	int bytes = rows * cols * sizeof(double);
+void heatMapTimeJump(int rows, int cols, double* oldMatrix, double td, double h, double* newMatrix, const char* kernelSource) {
+	int matrix_mem_size = rows * cols * sizeof(double);
 	cl_int err = CL_SUCCESS;
 
 	std::cout << "CL program create start";
@@ -105,12 +107,12 @@ void heatMapTimeJump(int rows, int cols, double ** oldMatrix, double td, double 
 	std::cout << "Kernel OK";
 
 	// Create device buffers.
-	cl_mem dev_old_matrix = clCreateBuffer(context, CL_MEM_READ_ONLY, bytes, NULL, &err);
+	cl_mem dev_old_matrix = clCreateBuffer(context, CL_MEM_READ_ONLY, matrix_mem_size, NULL, &err);
 	errCheck(err);
-	cl_mem dev_new_matrix = clCreateBuffer(context, CL_MEM_READ_ONLY, bytes, NULL, &err);
+	cl_mem dev_new_matrix = clCreateBuffer(context, CL_MEM_READ_ONLY, matrix_mem_size, NULL, &err);
 	errCheck(err);
 
-	errCheck(clEnqueueWriteBuffer(queue, dev_old_matrix, CL_TRUE, 0, bytes, oldMatrix, 0, NULL, NULL));
+	errCheck(clEnqueueWriteBuffer(queue, dev_old_matrix, CL_TRUE, 0, matrix_mem_size, oldMatrix, 0, NULL, NULL));
 
 	// Setup function arguments.
 	errCheck(clSetKernelArg(kernel, 0, sizeof(cl_mem), &dev_old_matrix));
@@ -121,15 +123,15 @@ void heatMapTimeJump(int rows, int cols, double ** oldMatrix, double td, double 
 	errCheck(clSetKernelArg(kernel, 5, sizeof(int), &cols));
 
 	// Execute the kernel.
-	size_t localSize = rows * cols;
-	size_t globalSize = rows * cols;
+	size_t localSize = (size_t)rows * (size_t)cols;
+	size_t globalSize = (size_t)rows * (size_t)cols;
 	errCheck(clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &globalSize, &localSize, 0, NULL, NULL));
 
 	// Wait for the kernel the terminate.
 	errCheck(clFinish(queue));
 
 	// Write device data in our output buffer.
-	errCheck(clEnqueueReadBuffer(queue, dev_new_matrix, CL_TRUE, 0, bytes, newMatrix, 0, NULL, NULL));
+	errCheck(clEnqueueReadBuffer(queue, dev_new_matrix, CL_TRUE, 0, matrix_mem_size, newMatrix, 0, NULL, NULL));
 	
 	// Clear memory.
 	errCheck(clReleaseMemObject(dev_old_matrix));
@@ -138,80 +140,4 @@ void heatMapTimeJump(int rows, int cols, double ** oldMatrix, double td, double 
 	errCheck(clReleaseProgram(program));
 	errCheck(clReleaseCommandQueue(queue));
 	errCheck(clReleaseContext(context));
-}
-
-void addWithOpenCl(const int * a, const int * b, int * c, int elements, const char * kernelSource) {
-	int bytes = elements * sizeof(int);
-	cl_int err = CL_SUCCESS;
-
-	// Get execution platform.
-	cl_platform_id platform;
-	errCheck(clGetPlatformIDs(1, &platform, NULL));
-
-	// Get available gpus on platform.
-	cl_device_id device_id;
-	errCheck(clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device_id, NULL));
-
-	// Create an execution context.
-	cl_context context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
-	errCheck(err);
-
-	// Create the command queue.
-	cl_command_queue queue = clCreateCommandQueueWithProperties(context, device_id, NULL, &err);
-	errCheck(err);
-
-	// Compile the source program.
-	cl_program program = clCreateProgramWithSource(context, 1, (const char **)&kernelSource, NULL, &err);
-	errCheck(err);
-
-	errCheck(clBuildProgram(program, 0, NULL, NULL, NULL, NULL));
-
-	// Setup an execution kernel from the source program.
-	cl_kernel kernel = clCreateKernel(program, "addKernel", &err);
-	errCheck(err);
-
-	// Create device buffers.
-	cl_mem dev_a = clCreateBuffer(context, CL_MEM_READ_ONLY, bytes, NULL, &err);
-	errCheck(err);
-	cl_mem dev_b = clCreateBuffer(context, CL_MEM_READ_ONLY, bytes, NULL, &err);
-	errCheck(err);
-	cl_mem dev_c = clCreateBuffer(context, CL_MEM_WRITE_ONLY, bytes, NULL, &err);
-	errCheck(err);
-
-	// Write host data to the device.
-	errCheck(clEnqueueWriteBuffer(queue, dev_a, CL_TRUE, 0, bytes, a, 0, NULL, NULL));
-	errCheck(clEnqueueWriteBuffer(queue, dev_b, CL_TRUE, 0, bytes, b, 0, NULL, NULL));
-
-	// Setup function arguments.
-	errCheck(clSetKernelArg(kernel, 0, sizeof(cl_mem), &dev_a));
-	errCheck(clSetKernelArg(kernel, 1, sizeof(cl_mem), &dev_b));
-	errCheck(clSetKernelArg(kernel, 2, sizeof(cl_mem), &dev_c));
-	errCheck(clSetKernelArg(kernel, 3, sizeof(int), &elements));
-
-	// Execute the kernel.
-	size_t localSize = elements;
-	size_t globalSize = elements;
-	errCheck(clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &globalSize, &localSize, 0, NULL, NULL));
-
-	// Wait for the kernel the terminate.
-	errCheck(clFinish(queue));
-
-	// Write device data in our output buffer.
-	errCheck(clEnqueueReadBuffer(queue, dev_c, CL_TRUE, 0, bytes, c, 0, NULL, NULL));
-
-	// Clear memory.
-	errCheck(clReleaseMemObject(dev_a));
-	errCheck(clReleaseMemObject(dev_b));
-	errCheck(clReleaseMemObject(dev_c));
-	errCheck(clReleaseKernel(kernel));
-	errCheck(clReleaseProgram(program));
-	errCheck(clReleaseCommandQueue(queue));
-	errCheck(clReleaseContext(context));
-
-	cout << "c = { " << c[0] << flush;
-	for (int i = 1; i < elements; i++) {
-		cout << ", " << c[i] << flush;
-	}
-
-	cout << " }" << endl << flush;
 }
