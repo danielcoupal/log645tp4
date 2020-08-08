@@ -5,11 +5,11 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>17 17 1000 0.00001 1 0 17 0 17 kernel.cl</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>20 20 1000 0.00001 1 0 17 0 17 kernel.cl</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>17 17 1000 0.00001 1 0 17 0 17 kernel.cl</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>20 20 1000 0.00001 1 0 17 0 17 kernel.cl</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>

@@ -9,7 +9,6 @@
 #include "parallel.hpp"
 
 char * readFile(const char * fileName);
-void addWithOpenCl(const int * a, const int * b, int * c, int elements, const char * kernelSource);
 
 using std::cout;
 using std::flush;
@@ -32,15 +31,18 @@ void solvePar(int rows, int cols, int iterations, double td, double h, double **
 
 	char* kernelSource = readFile(kernelFileName);
 
-	for (int k = 0; k < iterations; ++k) {
+	/*for (int k = 0; k < iterations; ++k) {
 
 		std::cout << "Iteration " << k << endl;
 
 		heatMapTimeJump(rows, cols, (double*)matrix, td, h, newMatrix, kernelSource);
 		memcpy(oldMatrix, newMatrix, sizeof(double) * rows * cols);
-	}
+	}*/
 
-	matrix = return2d(oldMatrix, rows, cols);
+	heatMapTimeJump(rows, cols, iterations, (double*)matrix, td, h, newMatrix, kernelSource);
+
+	double** newTallMatrix = return2d(oldMatrix, rows, cols);
+	memcpy(matrix, newTallMatrix, elements * sizeof(double));
 
 	delete[] oldMatrix;
 	delete[] newMatrix;
@@ -63,7 +65,7 @@ char * readFile(const char * fileName) {
 	return buffer;
 }
 
-void heatMapTimeJump(int rows, int cols, double* oldMatrix, double td, double h, double* newMatrix, const char* kernelSource) {
+void heatMapTimeJump(int rows, int cols, int iterations, double* oldMatrix, double td, double h, double* newMatrix, const char* kernelSource) {
 	int matrix_mem_size = rows * cols * sizeof(double);
 	cl_int err = CL_SUCCESS;
 
@@ -94,12 +96,13 @@ void heatMapTimeJump(int rows, int cols, double* oldMatrix, double td, double h,
 	errCheck(err);
 
 	// Create device buffers.
-	cl_mem dev_old_matrix = clCreateBuffer(context, CL_MEM_READ_ONLY, matrix_mem_size, NULL, &err);
+	cl_mem dev_old_matrix = clCreateBuffer(context, CL_MEM_READ_WRITE, matrix_mem_size, NULL, &err);
 	errCheck(err);
-	cl_mem dev_new_matrix = clCreateBuffer(context, CL_MEM_READ_ONLY, matrix_mem_size, NULL, &err);
+	cl_mem dev_new_matrix = clCreateBuffer(context, CL_MEM_READ_WRITE, matrix_mem_size, NULL, &err);
 	errCheck(err);
 
 	errCheck(clEnqueueWriteBuffer(queue, dev_old_matrix, CL_TRUE, 0, matrix_mem_size, oldMatrix, 0, NULL, NULL));
+	errCheck(clEnqueueWriteBuffer(queue, dev_new_matrix, CL_TRUE, 0, matrix_mem_size, newMatrix, 0, NULL, NULL));
 
 	// Setup function arguments.
 	errCheck(clSetKernelArg(kernel, 0, sizeof(cl_mem), &dev_old_matrix));
@@ -108,9 +111,10 @@ void heatMapTimeJump(int rows, int cols, double* oldMatrix, double td, double h,
 	errCheck(clSetKernelArg(kernel, 3, sizeof(cl_mem), &dev_new_matrix));
 	errCheck(clSetKernelArg(kernel, 4, sizeof(int), &rows));
 	errCheck(clSetKernelArg(kernel, 5, sizeof(int), &cols));
+	errCheck(clSetKernelArg(kernel, 6, sizeof(int), &iterations));
 
 	// Execute the kernel.
-	size_t localSize = 1;
+	size_t localSize = 1;// (size_t)cols;
 	size_t globalSize = (size_t)rows * (size_t)cols;
 	errCheck(clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &globalSize, &localSize, 0, NULL, NULL));
 
@@ -134,10 +138,15 @@ double* flatten(double** inArray, int rows, int cols) {
 	int elements = rows * cols;
 	double* flatArray = new double[elements];
 
-	for (int i = 0; i < rows; ++i) {
-		for (int j = 0; j < cols; ++j) {
-			flatArray[i * cols + j] = inArray[i][j];
+	int rowOffset = 0;
+
+
+	for (int row = 0; row < rows; ++row) {
+		for (int col = 0; col < cols; ++col) {
+			flatArray[rowOffset + col] = inArray[col][row];
 		}
+
+		rowOffset += cols;
 	}
 
 	return flatArray;
@@ -146,10 +155,14 @@ double* flatten(double** inArray, int rows, int cols) {
 double** return2d(double* inArray, int rows, int cols) {
 	double** tallArray = allocateMatrix(rows, cols);
 
-	for (int i = 0; i < rows; ++i) {
-		for (int j = 0; j < cols; ++j) {
-			tallArray[i][j] = inArray[i * cols + j];
+	int rowOffset = 0;
+
+	for (int row = 0; row < rows; ++row) {
+		for (int col = 0; col < cols; ++col) {
+			tallArray[col][row] = inArray[rowOffset + col];
 		}
+
+		rowOffset += cols;
 	}
 
 	return tallArray;
