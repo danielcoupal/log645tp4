@@ -1,11 +1,11 @@
 __kernel void addKernel(__global double * oldMatrix, 
-                        __global double td, 
-                        __global double h, 
+                        double td, 
+                        double h, 
                         __global double * newMatrix, 
-                        __global int rows,
-                        __global int cols) {
+                        int rows,
+                        int cols) {
     
-    int id = get_global_id(0) + cols;
+    int id = get_global_id(0);
     int x = id % cols;
     int y = id / cols;
 

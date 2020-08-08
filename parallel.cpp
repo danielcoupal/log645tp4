@@ -26,31 +26,24 @@ inline void errorCheck(cl_int code, const char* file, int line) {
 
 void solvePar(int rows, int cols, int iterations, double td, double h, double ** matrix, const char * kernelFileName) {
 
-	double* newMatrix = new double[rows * cols];
+	int elements = rows * cols;
+	double* oldMatrix = flatten(matrix, rows, cols);
+	double* newMatrix = new double[elements];
 
 	char* kernelSource = readFile(kernelFileName);
 
 	for (int k = 0; k < iterations; ++k) {
+
+		std::cout << "Iteration " << k << endl;
+
 		heatMapTimeJump(rows, cols, (double*)matrix, td, h, newMatrix, kernelSource);
-		memcpy(matrix, newMatrix, sizeof(double) * rows * cols);
+		memcpy(oldMatrix, newMatrix, sizeof(double) * rows * cols);
 	}
 
-	free(newMatrix);
-	
-	//cout << "Do OpenCl related stuff here!" << endl << flush;
+	matrix = return2d(oldMatrix, rows, cols);
 
-	// Example.
-	/*const int elements = 5;
-	const int a[elements] = { 1, 2, 3, 4, 5 };
-	const int b[elements] = { 5, 4, 3, 2, 1 };
-	int c[elements] = { 0 };
-
-	char * kernelSource = readFile(kernelFileName);
-	printf("%s\n", kernelSource);
-	
-	Sleep(3000);
-
-	addWithOpenCl(a, b, c, elements, kernelSource);*/
+	delete[] oldMatrix;
+	delete[] newMatrix;
 }
 
 char * readFile(const char * fileName) {
@@ -74,8 +67,6 @@ void heatMapTimeJump(int rows, int cols, double* oldMatrix, double td, double h,
 	int matrix_mem_size = rows * cols * sizeof(double);
 	cl_int err = CL_SUCCESS;
 
-	std::cout << "CL program create start";
-
 	// Get execution platform.
 	cl_platform_id platform;
 	errCheck(clGetPlatformIDs(1, &platform, NULL));
@@ -98,13 +89,9 @@ void heatMapTimeJump(int rows, int cols, double* oldMatrix, double td, double h,
 
 	errCheck(clBuildProgram(program, 0, NULL, NULL, NULL, NULL));
 
-	std::cout << "Program OK";
-
 	// Setup an execution kernel from the source program.
 	cl_kernel kernel = clCreateKernel(program, "addKernel", &err);
 	errCheck(err);
-
-	std::cout << "Kernel OK";
 
 	// Create device buffers.
 	cl_mem dev_old_matrix = clCreateBuffer(context, CL_MEM_READ_ONLY, matrix_mem_size, NULL, &err);
@@ -123,7 +110,7 @@ void heatMapTimeJump(int rows, int cols, double* oldMatrix, double td, double h,
 	errCheck(clSetKernelArg(kernel, 5, sizeof(int), &cols));
 
 	// Execute the kernel.
-	size_t localSize = (size_t)rows * (size_t)cols;
+	size_t localSize = 1;
 	size_t globalSize = (size_t)rows * (size_t)cols;
 	errCheck(clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &globalSize, &localSize, 0, NULL, NULL));
 
@@ -141,3 +128,30 @@ void heatMapTimeJump(int rows, int cols, double* oldMatrix, double td, double h,
 	errCheck(clReleaseCommandQueue(queue));
 	errCheck(clReleaseContext(context));
 }
+
+double* flatten(double** inArray, int rows, int cols) {
+
+	int elements = rows * cols;
+	double* flatArray = new double[elements];
+
+	for (int i = 0; i < rows; ++i) {
+		for (int j = 0; j < cols; ++j) {
+			flatArray[i * cols + j] = inArray[i][j];
+		}
+	}
+
+	return flatArray;
+}
+
+double** return2d(double* inArray, int rows, int cols) {
+	double** tallArray = allocateMatrix(rows, cols);
+
+	for (int i = 0; i < rows; ++i) {
+		for (int j = 0; j < cols; ++j) {
+			tallArray[i][j] = inArray[i * cols + j];
+		}
+	}
+
+	return tallArray;
+}
+
