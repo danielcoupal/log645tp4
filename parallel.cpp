@@ -26,26 +26,18 @@ inline void errorCheck(cl_int code, const char* file, int line) {
 void solvePar(int rows, int cols, int iterations, double td, double h, double ** matrix, const char * kernelFileName) {
 
 	int elements = rows * cols;
-	double* oldMatrix = flatten(matrix, rows, cols);
-	double* newMatrix = new double[elements];
+	double* flatMatrix1 = flatten(matrix, rows, cols);
+	double* flatMatrix2 = new double[elements];
 
 	char* kernelSource = readFile(kernelFileName);
 
-	/*for (int k = 0; k < iterations; ++k) {
+	heatMapTimeJump(rows, cols, iterations, flatMatrix1, flatMatrix2, td, h, kernelSource);
 
-		std::cout << "Iteration " << k << endl;
-
-		heatMapTimeJump(rows, cols, (double*)matrix, td, h, newMatrix, kernelSource);
-		memcpy(oldMatrix, newMatrix, sizeof(double) * rows * cols);
-	}*/
-
-	heatMapTimeJump(rows, cols, iterations, (double*)matrix, td, h, newMatrix, kernelSource);
-
-	double** newTallMatrix = return2d(oldMatrix, rows, cols);
+	double** newTallMatrix = return2d(flatMatrix1, rows, cols);
 	memcpy(matrix, newTallMatrix, elements * sizeof(double));
 
-	delete[] oldMatrix;
-	delete[] newMatrix;
+	delete[] flatMatrix1;
+	delete[] flatMatrix2;
 }
 
 char * readFile(const char * fileName) {
@@ -65,7 +57,7 @@ char * readFile(const char * fileName) {
 	return buffer;
 }
 
-void heatMapTimeJump(int rows, int cols, int iterations, double* oldMatrix, double td, double h, double* newMatrix, const char* kernelSource) {
+void heatMapTimeJump(int rows, int cols, int iterations, double* flatMatrix1, double* flatMatrix2, double td, double h, const char* kernelSource) {
 	int matrix_mem_size = rows * cols * sizeof(double);
 	cl_int err = CL_SUCCESS;
 
@@ -101,8 +93,8 @@ void heatMapTimeJump(int rows, int cols, int iterations, double* oldMatrix, doub
 	cl_mem dev_new_matrix = clCreateBuffer(context, CL_MEM_READ_WRITE, matrix_mem_size, NULL, &err);
 	errCheck(err);
 
-	errCheck(clEnqueueWriteBuffer(queue, dev_old_matrix, CL_TRUE, 0, matrix_mem_size, oldMatrix, 0, NULL, NULL));
-	errCheck(clEnqueueWriteBuffer(queue, dev_new_matrix, CL_TRUE, 0, matrix_mem_size, newMatrix, 0, NULL, NULL));
+	errCheck(clEnqueueWriteBuffer(queue, dev_old_matrix, CL_TRUE, 0, matrix_mem_size, flatMatrix1, 0, NULL, NULL));
+	errCheck(clEnqueueWriteBuffer(queue, dev_new_matrix, CL_TRUE, 0, matrix_mem_size, flatMatrix2, 0, NULL, NULL));
 
 	// Setup function arguments.
 	errCheck(clSetKernelArg(kernel, 0, sizeof(cl_mem), &dev_old_matrix));
@@ -122,7 +114,7 @@ void heatMapTimeJump(int rows, int cols, int iterations, double* oldMatrix, doub
 	errCheck(clFinish(queue));
 
 	// Write device data in our output buffer.
-	errCheck(clEnqueueReadBuffer(queue, dev_new_matrix, CL_TRUE, 0, matrix_mem_size, newMatrix, 0, NULL, NULL));
+	errCheck(clEnqueueReadBuffer(queue, dev_new_matrix, CL_TRUE, 0, matrix_mem_size, flatMatrix2, 0, NULL, NULL));
 	
 	// Clear memory.
 	errCheck(clReleaseMemObject(dev_old_matrix));
