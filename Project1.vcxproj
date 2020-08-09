@@ -146,7 +146,7 @@
     <ClInclude Include="sequential.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="kernel.cl" />
+    <None Include="lab4.cl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -46,7 +46,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="kernel.cl">
+    <None Include="lab4.cl">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

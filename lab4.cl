@@ -1,4 +1,4 @@
-__kernel void addKernel(__global double * oldMatrix, 
+__kernel void HeatTransfer(__global double * oldMatrix, 
                         double td, 
                         double h, 
                         __global double * newMatrix, 
