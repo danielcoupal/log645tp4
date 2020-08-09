@@ -11,7 +11,7 @@ __kernel void addKernel(__global double * oldMatrix,
     int y = id / cols;
 
     for (int i = 0; i < iterations; ++i) {
-        if(x > 0 && y > 0 && id < (cols * rows)) {
+        if(x > 0 && x < cols - 1 && y > 0 && y < rows - 1) {
             double c = oldMatrix[id];
             double b = oldMatrix[id - cols];
             double t = oldMatrix[id + cols];

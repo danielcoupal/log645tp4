@@ -34,7 +34,10 @@ void solvePar(int rows, int cols, int iterations, double td, double h, double **
 	heatMapTimeJump(rows, cols, iterations, flatMatrix1, flatMatrix2, td, h, kernelSource);
 
 	double** newTallMatrix = return2d(flatMatrix2, rows, cols);
-	memcpy(matrix, newTallMatrix, elements * sizeof(double));
+
+	for (int row = 0; row < rows; row++) {
+		memcpy(matrix[row], newTallMatrix[row], cols * sizeof(double));
+	}
 
 	delete[] flatMatrix1;
 	delete[] flatMatrix2;
@@ -74,7 +77,7 @@ void heatMapTimeJump(int rows, int cols, int iterations, double* flatMatrix1, do
 	errCheck(err);
 
 	// Create the command queue.
-	cl_command_queue queue = clCreateCommandQueue(context, device_id, NULL, &err);
+	cl_command_queue queue = clCreateCommandQueueWithProperties(context, device_id, NULL, &err);
 	errCheck(err);
 
 	// Compile the source program.
