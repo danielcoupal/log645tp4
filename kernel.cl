@@ -12,7 +12,7 @@ __kernel void addKernel(__global double * oldMatrix,
 
     for (int i = 0; i < iterations; ++i) {
         if(x > 0 && id < (cols - 1)) {
-            if (y > 0 && y < (rows - 1)) {
+            if (y > 0 && id < (rows - 1)) {
                 double c = oldMatrix[id];
                 double b = oldMatrix[id - cols];
                 double t = oldMatrix[id + cols];

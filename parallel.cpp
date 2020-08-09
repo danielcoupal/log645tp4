@@ -33,7 +33,7 @@ void solvePar(int rows, int cols, int iterations, double td, double h, double **
 
 	heatMapTimeJump(rows, cols, iterations, flatMatrix1, flatMatrix2, td, h, kernelSource);
 
-	double** newTallMatrix = return2d(flatMatrix1, rows, cols);
+	double** newTallMatrix = return2d(flatMatrix2, rows, cols);
 	memcpy(matrix, newTallMatrix, elements * sizeof(double));
 
 	delete[] flatMatrix1;
@@ -74,7 +74,7 @@ void heatMapTimeJump(int rows, int cols, int iterations, double* flatMatrix1, do
 	errCheck(err);
 
 	// Create the command queue.
-	cl_command_queue queue = clCreateCommandQueueWithProperties(context, device_id, NULL, &err);
+	cl_command_queue queue = clCreateCommandQueue(context, device_id, NULL, &err);
 	errCheck(err);
 
 	// Compile the source program.
@@ -94,7 +94,7 @@ void heatMapTimeJump(int rows, int cols, int iterations, double* flatMatrix1, do
 	errCheck(err);
 
 	errCheck(clEnqueueWriteBuffer(queue, dev_old_matrix, CL_TRUE, 0, matrix_mem_size, flatMatrix1, 0, NULL, NULL));
-	errCheck(clEnqueueWriteBuffer(queue, dev_new_matrix, CL_TRUE, 0, matrix_mem_size, flatMatrix2, 0, NULL, NULL));
+	//errCheck(clEnqueueWriteBuffer(queue, dev_new_matrix, CL_TRUE, 0, matrix_mem_size, flatMatrix2, 0, NULL, NULL));
 
 	// Setup function arguments.
 	errCheck(clSetKernelArg(kernel, 0, sizeof(cl_mem), &dev_old_matrix));
@@ -108,7 +108,7 @@ void heatMapTimeJump(int rows, int cols, int iterations, double* flatMatrix1, do
 	// Execute the kernel.
 	size_t localSize = 1;// (size_t)cols;
 	size_t globalSize = (size_t)rows * (size_t)cols;
-	errCheck(clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &globalSize, &localSize, 0, NULL, NULL));
+	errCheck(clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &globalSize, NULL, 0, NULL, NULL));
 
 	// Wait for the kernel the terminate.
 	errCheck(clFinish(queue));
