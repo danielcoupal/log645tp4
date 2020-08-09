@@ -26,13 +26,17 @@ inline void errorCheck(cl_int code, const char* file, int line) {
 void solvePar(int rows, int cols, int iterations, double td, double h, double ** matrix, const char * kernelFileName) {
 
 	int elements = rows * cols;
+
+	// Create two flat surrogate matrixes to pass to the OpenCL kernel
 	double* flatMatrix1 = flatten(matrix, rows, cols);
 	double* flatMatrix2 = new double[elements];
 
 	char* kernelSource = readFile(kernelFileName);
 
-	heatMapTimeJump(rows, cols, iterations, flatMatrix1, flatMatrix2, td, h, kernelSource);
+	// OpenCL routine to execute operations
+	heatTransferOclCall(rows, cols, iterations, flatMatrix1, flatMatrix2, td, h, kernelSource);
 
+	// Create new 2d matrix with results and copy to original
 	double** newTallMatrix = return2d(flatMatrix2, rows, cols);
 
 	for (int row = 0; row < rows; row++) {
@@ -60,7 +64,7 @@ char * readFile(const char * fileName) {
 	return buffer;
 }
 
-void heatMapTimeJump(int rows, int cols, int iterations, double* flatMatrix1, double* flatMatrix2, double td, double h, const char* kernelSource) {
+void heatTransferOclCall(int rows, int cols, int iterations, double* flatMatrix1, double* flatMatrix2, double td, double h, const char* kernelSource) {
 	int matrix_mem_size = rows * cols * sizeof(double);
 	cl_int err = CL_SUCCESS;
 
@@ -87,7 +91,7 @@ void heatMapTimeJump(int rows, int cols, int iterations, double* flatMatrix1, do
 	errCheck(clBuildProgram(program, 0, NULL, NULL, NULL, NULL));
 
 	// Setup an execution kernel from the source program.
-	cl_kernel kernel = clCreateKernel(program, "addKernel", &err);
+	cl_kernel kernel = clCreateKernel(program, "HeatTransfer", &err);
 	errCheck(err);
 
 	// Create device buffers.
@@ -97,7 +101,6 @@ void heatMapTimeJump(int rows, int cols, int iterations, double* flatMatrix1, do
 	errCheck(err);
 
 	errCheck(clEnqueueWriteBuffer(queue, dev_old_matrix, CL_TRUE, 0, matrix_mem_size, flatMatrix1, 0, NULL, NULL));
-	//errCheck(clEnqueueWriteBuffer(queue, dev_new_matrix, CL_TRUE, 0, matrix_mem_size, flatMatrix2, 0, NULL, NULL));
 
 	// Setup function arguments.
 	errCheck(clSetKernelArg(kernel, 0, sizeof(cl_mem), &dev_old_matrix));
@@ -109,7 +112,7 @@ void heatMapTimeJump(int rows, int cols, int iterations, double* flatMatrix1, do
 	errCheck(clSetKernelArg(kernel, 6, sizeof(int), &iterations));
 
 	// Execute the kernel.
-	size_t localSize = 1;// (size_t)cols;
+	size_t localSize = 1;	// No need for workgroups that we can see
 	size_t globalSize = (size_t)rows * (size_t)cols;
 	errCheck(clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &globalSize, NULL, 0, NULL, NULL));
 
@@ -138,7 +141,8 @@ double* flatten(double** inArray, int rows, int cols) {
 
 	for (int row = 0; row < rows; ++row) {
 		for (int col = 0; col < cols; ++col) {
-			flatArray[rowOffset + col] = inArray[col][row];
+			#pragma warning(suppress: 6386)
+			flatArray[rowOffset + col] = inArray[col][row];	// Can't find source, fix or failure for warning
 		}
 
 		rowOffset += cols;

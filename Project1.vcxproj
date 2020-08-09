@@ -133,7 +133,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="lab4.cpp" />
     <ClCompile Include="matrix.cpp" />
     <ClCompile Include="output.cpp" />
     <ClCompile Include="parallel.cpp" />
